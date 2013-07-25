@@ -33,6 +33,7 @@ data MultiNormalVec (n::Nat) prob = MultiNormalVec
 instance NFData (MultiNormalVec n prob) where
     rnf mn = seq mn ()
 
+<<<<<<< Updated upstream
 newtype MultiNormal (xs::[*]) prob = MultiNormal (MultiNormalVec (Length xs) prob)
     deriving (Read,Show,Eq,Ord,NFData)
 
@@ -40,6 +41,25 @@ deriving instance (Monoid  (MultiNormalVec (Length xs) prob)) => Monoid (MultiNo
 deriving instance (Abelian (MultiNormalVec (Length xs) prob)) => Abelian (MultiNormal xs prob)
 deriving instance (Group   (MultiNormalVec (Length xs) prob)) => Group (MultiNormal xs prob)
 deriving instance (Module  (MultiNormalVec (Length xs) prob)) => Module (MultiNormal xs prob)
+=======
+newtype MultiNormal prob xs = MultiNormal (MultiNormalVec (Length' xs) prob)
+    deriving (Read,Show,Eq,Ord,NFData)
+
+type family Length' xs :: Nat
+type instance Length' (HList xs) = Length xs
+
+
+-- deriving instance (Read (MultiNormalVec (Length xs) prob)) => Read (MultiNormal prob xs)
+-- deriving instance (Show (MultiNormalVec (Length xs) prob)) => Show (MultiNormal prob xs)
+-- deriving instance (Eq   (MultiNormalVec (Length xs) prob)) => Eq   (MultiNormal prob xs)
+-- deriving instance (Ord  (MultiNormalVec (Length xs) prob)) => Ord  (MultiNormal prob xs)
+-- deriving instance (NFData (MultiNormalVec (Length xs) prob)) => NFData (MultiNormal prob xs)
+
+deriving instance (Monoid  (MultiNormalVec (Length' xs) prob)) => Monoid (MultiNormal prob xs)
+deriving instance (Abelian (MultiNormalVec (Length' xs) prob)) => Abelian (MultiNormal prob xs)
+deriving instance (Group   (MultiNormalVec (Length' xs) prob)) => Group (MultiNormal prob xs)
+deriving instance (Module  (MultiNormalVec (Length' xs) prob)) => Module (MultiNormal prob xs)
+>>>>>>> Stashed changes
 
 -------------------------------------------------------------------------------
 -- algebra
@@ -98,10 +118,17 @@ instance
     ( SingI (Length xs)
     , Num prob
     , VU.Unbox prob
+<<<<<<< Updated upstream
     , HList2List (Datapoint (MultiNormal xs prob)) prob
     ) => HomTrainer (MultiNormal xs prob) 
         where
     type Datapoint (MultiNormal xs prob) = HList xs
+=======
+    , HList2List (Datapoint (MultiNormal prob (HList xs))) prob
+    ) => HomTrainer (MultiNormal prob (HList xs)) 
+        where
+    type Datapoint (MultiNormal prob (HList xs)) = HList xs
+>>>>>>> Stashed changes
     train1dp dp = MultiNormal $ train1dp $ VU.fromList $ hlist2list dp
 
 instance (Num prob) => NumDP (MultiNormal xs prob) where
@@ -144,9 +171,15 @@ instance
     , VU.Unbox prob
     , Num prob
     , SingI (FromNat1 (Length1 dpL))
+<<<<<<< Updated upstream
     ) => Probabilistic (MultiNormal dpL prob) 
         where
     type Probability (MultiNormal dpL prob) = prob
+=======
+    ) => Probabilistic (MultiNormal prob (HList dpL)) 
+        where
+    type Probability (MultiNormal prob (HList dpL)) = prob
+>>>>>>> Stashed changes
 
 instance
     ( HList2List (HList dpL) prob
@@ -157,7 +190,11 @@ instance
     , SingI (FromNat1 (Length1 dpL))
 --     , Covariance (MultiNormal dpL prob)
     , Storable prob
+<<<<<<< Updated upstream
     ) => PDF (MultiNormal dpL prob) 
+=======
+    ) => PDF (MultiNormal prob (HList dpL))
+>>>>>>> Stashed changes
         where
     pdf (MultiNormal dist) dpL = 1/(sqrt $ (2*pi)^(k)*(det sigma))*(exp $ (-1/2)*(top) )
         where
@@ -195,5 +232,9 @@ ds =
     , 3:::1:::1:::HNil
     , 3:::2:::1:::HNil
     ]
+<<<<<<< Updated upstream
 test = train ds :: MultiNormal '[Double,Double,Double] Double
         
+=======
+test = train ds :: MultiNormal Double (HList '[Double,Double,Double] )
+>>>>>>> Stashed changes

@@ -30,32 +30,32 @@ import HLearn.Models.Distributions.Univariate.Categorical
 -------------------------------------------------------------------------------
 -- data types
 
-data CatContainer label basedist prob = CatContainer
-    { pdfmap :: !(Map.Map label basedist)
-    , probmap :: !(Map.Map label prob)
+data CatContainer basedist prob datapoint = CatContainer
+    { pdfmap :: !(Map.Map datapoint basedist)
+    , probmap :: !(Map.Map datapoint prob)
     , catnumdp :: prob
     } 
     deriving (Show,Read,Eq,Ord)
 
--- instance (Show basedist, Show label, Show prob) => Show (CatContainer label basedist prob) where
+-- instance (Show basedist, Show datapoint, Show prob) => Show (CatContainer basedist prob datapoint) where
 --     show dist = "CatContainer "
 -- --               ++"{ "++"params="++show (params dist)
 --               ++"{ "++"pdfmap="++show (pdfmap dist)
 --               ++", catnumdp="++show (catnumdp dist)
 --               ++"}"
 
-instance (NFData label, NFData prob, NFData basedist) => 
-    NFData (CatContainer label basedist prob) 
+instance (NFData datapoint, NFData prob, NFData basedist) => 
+    NFData (CatContainer basedist prob datapoint) 
         where
     rnf d = rnf $ pdfmap d
 
--- type CatContainer label basedist prob = RegSG2Group (CatContainer label basedist prob)
+-- type CatContainer basedist prob datapoint = RegSG2Group (CatContainer basedist prob datapoint)
 
 -------------------------------------------------------------------------------
 -- Algebra
 
-instance (Ord label, Num prob, Monoid basedist) => Abelian (CatContainer label basedist prob)
-instance (Ord label, Num prob, Monoid basedist) => Monoid (CatContainer label basedist prob) where
+instance (Ord datapoint, Num prob, Monoid basedist) => Abelian (CatContainer basedist prob datapoint)
+instance (Ord datapoint, Num prob, Monoid basedist) => Monoid (CatContainer basedist prob datapoint) where
     mempty = CatContainer mempty mempty 0
     d1 `mappend` d2 = CatContainer
         { pdfmap = Map.unionWith (<>) (pdfmap d1) (pdfmap d2) 
@@ -63,47 +63,47 @@ instance (Ord label, Num prob, Monoid basedist) => Monoid (CatContainer label ba
         , catnumdp  = (catnumdp d1)+(catnumdp d2)
         } 
 
-instance (Ord label, Num prob, Group basedist) => Group (CatContainer label basedist prob) where
+instance (Ord datapoint, Num prob, Group basedist) => Group (CatContainer basedist prob datapoint) where
     inverse d1 = CatContainer
         { pdfmap = Map.map (inverse) (pdfmap d1)
         , probmap = Map.map negate (probmap d1)
         , catnumdp = -catnumdp d1
         }
 
-instance (Num prob) => HasRing (CatContainer label basedist prob) where
-    type Ring (CatContainer label basedist prob) = prob
+instance (Num prob) => HasRing (CatContainer basedist prob datapoint) where
+    type Ring (CatContainer basedist prob datapoint) = prob
 
 instance 
-    ( Ord label
+    ( Ord datapoint
     , Num prob
     , Module basedist
-    , Ring basedist ~ Ring (CatContainer label basedist prob)
-    ) => Module (CatContainer label basedist prob) 
+    , Ring basedist ~ Ring (CatContainer basedist prob datapoint)
+    ) => Module (CatContainer basedist prob datapoint) 
         where
     r .* d = CatContainer
         { pdfmap = Map.map (r.*) (pdfmap d)
         , probmap = Map.map (r*) (probmap d)
         , catnumdp = r * catnumdp d
         }
--- -- instance (Ord label, Num prob) => LeftModule prob (CatContainer label prob)
--- instance (Ord label, Num prob) => LeftOperator prob (CatContainer label prob) where
+-- -- instance (Ord datapoint, Num prob) => LeftModule prob (CatContainer datapoint prob)
+-- instance (Ord datapoint, Num prob) => LeftOperator prob (CatContainer datapoint prob) where
 --     p .* (CatContainer pdf) = CatContainer $ Map.map (*p) pdf
 -- 
--- -- instance (Ord label, Num prob) => RightModule prob (CatContainer label prob)
--- instance (Ord label, Num prob) => RightOperator prob (CatContainer label prob) where
+-- -- instance (Ord datapoint, Num prob) => RightModule prob (CatContainer datapoint prob)
+-- instance (Ord datapoint, Num prob) => RightOperator prob (CatContainer datapoint prob) where
 --     (*.) = flip (.*)
 
 -------------------------------------------------------------------------------
 -- Training
 
 instance 
-    ( Ord label
+    ( Ord datapoint
     , Num prob
     , HomTrainer basedist
     , Datapoint basedist ~ HList ys
-    ) => HomTrainer (CatContainer label basedist prob) 
+    ) => HomTrainer (CatContainer basedist prob datapoint) 
         where
-    type Datapoint (CatContainer label basedist prob) = label `HCons` (Datapoint basedist)
+    type Datapoint (CatContainer basedist prob datapoint) = datapoint `HCons` (Datapoint basedist)
     
     train1dp (dp:::basedp) = CatContainer 
         { pdfmap = Map.singleton dp $ train1dp basedp
@@ -111,33 +111,33 @@ instance
         , catnumdp  = 1
         }
 
-instance (Num prob) => NumDP (CatContainer label basedist prob) where
+instance (Num prob) => NumDP (CatContainer basedist prob datapoint) where
     numdp dist = catnumdp dist
 
 -------------------------------------------------------------------------------
 -- Distribution
 
-instance Probabilistic (CatContainer label basedist prob) where
-    type Probability (CatContainer label basedist prob) = prob
+instance Probabilistic (CatContainer basedist prob datapoint) where
+    type Probability (CatContainer basedist prob datapoint) = prob
 
 instance 
     ( Ord prob, Fractional prob, Show prob, Probability basedist ~ prob
-    , Ord label
+    , Ord datapoint
     , PDF basedist
     , Datapoint basedist ~ HList ys
     , Show (Datapoint basedist)
-    , Show label
-    ) => PDF (CatContainer label basedist prob)
+    , Show datapoint
+    ) => PDF (CatContainer basedist prob datapoint)
         where
 
     {-# INLINE pdf #-}
-    pdf dist (label:::basedp) = val*weight/(catnumdp dist)
+    pdf dist (datapoint:::basedp) = val*weight/(catnumdp dist)
         where
-            weight = case Map.lookup label (probmap dist) of
+            weight = case Map.lookup datapoint (probmap dist) of
                 Nothing -> 0
                 Just x  -> x
-            val = case Map.lookup label (pdfmap dist) of
-                Nothing -> trace ("Warning.CatContainer: label "++show label++" not found in training data: "++show (Map.keys $ pdfmap dist)) $ 0
+            val = case Map.lookup datapoint (pdfmap dist) of
+                Nothing -> trace ("Warning.CatContainer: datapoint "++show datapoint++" not found in training data: "++show (Map.keys $ pdfmap dist)) $ 0
                 Just x  -> pdf x basedp
 
 ---------------------------------------
@@ -146,15 +146,15 @@ instance
     ( NumDP basedist
     , Ring basedist ~ prob
     , Monoid basedist
-    , HCons label (Datapoint basedist) ~ HList (label ': ts)
-    , Ord label
-    ) => Marginalize' (Nat1Box Zero) (CatContainer label basedist prob) 
+    , HCons datapoint (Datapoint basedist) ~ HList (datapoint ': ts)
+    , Ord datapoint
+    ) => Marginalize' (Nat1Box Zero) (CatContainer basedist prob datapoint) 
         where
               
-    type Margin' (Nat1Box Zero) (CatContainer label basedist prob) = (Categorical prob label) 
+    type Margin' (Nat1Box Zero) (CatContainer basedist prob datapoint) = (Categorical prob datapoint) 
     getMargin' _ dist = Categorical $ probmap dist --Map.map numdp (pdfmap dist) 
 
-    type MarginalizeOut' (Nat1Box Zero) (CatContainer label basedist prob) = Ignore' label basedist prob
+    type MarginalizeOut' (Nat1Box Zero) (CatContainer basedist prob datapoint) = Ignore' basedist prob datapoint
     marginalizeOut' _ dist = Ignore' $ reduce $ Map.elems (pdfmap dist)  
         
     condition' _ dist dp = Ignore' $ 
@@ -175,19 +175,19 @@ instance
     , prob ~ Probability (Margin' (Nat1Box n) basedist)
     , prob ~ Ring basedist
     , Module basedist
-    , Ord label
+    , Ord datapoint
     , Num prob
-    ) => Marginalize' (Nat1Box (Succ n)) (CatContainer label basedist prob) 
+    ) => Marginalize' (Nat1Box (Succ n)) (CatContainer basedist prob datapoint) 
         where
               
-    type Margin' (Nat1Box (Succ n)) (CatContainer label basedist prob) = Margin' (Nat1Box n) basedist
+    type Margin' (Nat1Box (Succ n)) (CatContainer basedist prob datapoint) = Margin' (Nat1Box n) basedist
     getMargin' _ dist = getMargin' (undefined :: Nat1Box n) $ reduce $ 
         zipWith (.*)
         (Map.elems $ probmap dist) 
         (Map.elems $ pdfmap dist) 
     
-    type MarginalizeOut' (Nat1Box (Succ n)) (CatContainer label basedist prob) = 
-        CatContainer label (MarginalizeOut' (Nat1Box n) basedist) prob
+    type MarginalizeOut' (Nat1Box (Succ n)) (CatContainer basedist prob datapoint) = 
+        CatContainer (MarginalizeOut' (Nat1Box n) basedist) prob datapoint
     marginalizeOut' _ dist = dist { pdfmap = fmap (marginalizeOut' (undefined :: Nat1Box n)) $ pdfmap dist }
 
     condition' _ dist dp = dist 
@@ -200,7 +200,7 @@ instance
     
 {-marginalizeRight :: 
     ( NumDP basedist prob
-    ) => CatContainer label basedist prob -> CatContainer label (Unital prob) prob
+    ) => CatContainer basedist prob datapoint -> CatContainer datapoint (Unital prob) prob
 marginalizeRight dist = CatContainer
     { pdfmap = Map.map (Unital . numdp) (pdfmap dist) 
     , probmap = error "probmap"
@@ -217,4 +217,4 @@ ds= [ "test":::'g':::"foo":::HNil
     , "toot":::'f':::"foo":::HNil
     ]
     
-test = train ds :: CatContainer String (CatContainer Char (CatContainer String (Unital Double) Double) Double) Double
+test = train ds :: CatContainer (CatContainer (CatContainer (Unital Double) Double String) Double Char) Double String
