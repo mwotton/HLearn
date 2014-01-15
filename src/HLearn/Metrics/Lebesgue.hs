@@ -6,6 +6,7 @@ import Control.Monad.ST
 import Control.Monad.Primitive
 import Control.DeepSeq
 import Data.Csv
+import Data.Default
 import Data.Primitive.MutVar
 import qualified Data.Foldable as F
 import qualified Data.Strict.Maybe as Strict
@@ -99,6 +100,9 @@ newtype L2 v a = L2 { unL2 :: v a }
 deriving instance F.Foldable v => F.Foldable (L2 v)
 deriving instance Functor v => Functor (L2 v)
 
+instance VG.Vector v a => Default (L2 v a) where
+    def = VG.empty
+
 instance VG.Vector v a => VG.Vector (L2 v) a where
     {-# INLINE basicUnsafeFreeze #-}
     {-# INLINE basicUnsafeThaw #-}
@@ -166,7 +170,7 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
 
     {-# INLINE isFartherThanWithDistanceCanError #-}
     isFartherThanWithDistanceCanError !v1 !v2 !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
-        sqrt $ isFartherThanWithDistanceMonoCanError v1 v2 dist
+        isFartherThanWithDistanceMonoCanError v1 v2 dist
 
     {-# INLINE isFartherThanWithDistanceMonoCanError #-}
     isFartherThanWithDistanceMonoCanError !(L2 v1) !(L2 v2) !dist = {-# SCC isFartherThanWithDistanceMonoCanError #-} 
@@ -175,8 +179,8 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
             dist2=dist*dist
 
             go !tot !i = if i>VG.length v1-8
---             go !tot !i = if i>20-8
-                then goSmall tot i
+--             go !tot !i = if i>618-8
+                then sqrt $ goSmall tot i
                 else if tot'>dist2
                     then errorVal
                     else go tot' (i+8)
@@ -198,6 +202,7 @@ instance (VG.Vector v r, RealFrac r, Floating r) => MetricSpace (L2 v r) where
                         *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
                         +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
                         *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
+
 --                         +(v1 `VG.unsafeIndex` (i+8)-v2 `VG.unsafeIndex` (i+8))
 --                         *(v1 `VG.unsafeIndex` (i+8)-v2 `VG.unsafeIndex` (i+8))
 --                         +(v1 `VG.unsafeIndex` (i+9)-v2 `VG.unsafeIndex` (i+9))

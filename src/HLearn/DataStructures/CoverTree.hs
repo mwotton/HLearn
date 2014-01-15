@@ -354,7 +354,12 @@ packCT2 n ct = snd $ go 1 $ ct' { nodedp = v VG.! 0 }
                 (i',children') = mapAccumL go 
                     (i+length (toList $ nodeV t)+length (toList $ children t)) 
                     (fmap (\(j,x) -> if nodedp x /= v VG.! j then error ("/="++show j) else x { nodedp = v VG.! j } ) 
-                        $ zip [i+length (toList $ nodeV t) .. ] $ toList $ children t)
+--                         $ zip [i+length (toList $ nodeV t) .. ] $ toList $ children t)
+                        $ zip [i+length (toList $ nodeV t) .. ] $ sortedChildren)
+
+                sortedChildren = sortBy sortgo $ toList $ children t
+                sortgo a b = compare (numdp a) (numdp b)
+                          <> compare (maxDescendentDistance a) (maxDescendentDistance b)
 
         ct' = setNodeV n ct
         v = fromList $ mkNodeList ct'
@@ -363,17 +368,49 @@ packCT2 n ct = snd $ go 1 $ ct' { nodedp = v VG.! 0 }
         go_mkNodeList ct = (toList $ nodeV ct) 
                         ++ (map nodedp $ toList $ children ct)
                         ++ (concatMap go_mkNodeList $ toList $ children ct)
-
+{-
 packCT :: 
     ( ValidCT base childContainer nodeVvec tag dp
-    , nodeVvec ~ VU.Vector
-    , VU.Unbox dp
+    , VG.Vector nodeVvec dp
+--     , nodeVvec ~ VU.Vector
+--     , VU.Unbox dp
     ) => Int -> CoverTree' base childContainer nodeVvec tag dp -> CoverTree' base childContainer nodeVvec tag dp
 packCT n ct = snd $ go 0 ct'
     where
         go i t = (i',t
-            { nodedp = v VU.! i
-            , nodeV = VU.slice (i+1) (VG.length $ nodeV t) v
+            { nodedp = v VG.! i
+            , nodeV = VG.slice (i+1) (VG.length $ nodeV t) v
+            , children = fromList children'
+            })
+            where
+                (i',children') = mapAccumL go (i+1+length (toList $ nodeV t)) sortedChildren
+
+                sortedChildren = toList $ children t
+--                 sortedChildren = sortBy sortgo $ toList $ children t
+--                 sortgo a b = compare (numdp a) (numdp b)
+--                           <> compare (maxDescendentDistance a) (maxDescendentDistance b)
+
+        ct' = setNodeV n ct
+        v = fromList $ mkNodeList ct'
+
+        mkNodeList ct = [nodedp ct] 
+                     ++ (toList $ nodeV ct) 
+--                      ++ (concatMap mkNodeList sortedChildren)
+                     ++ (concatMap mkNodeList $ toList $ children ct)
+-}
+
+{-# INLINABLE packCT #-}
+packCT :: 
+    ( ValidCT base childContainer nodeVvec tag dp
+    , VG.Vector nodeVvec dp
+--     , nodeVvec ~ VU.Vector
+--     , VU.Unbox dp
+    ) => Int -> CoverTree' base childContainer nodeVvec tag dp -> CoverTree' base childContainer nodeVvec tag dp
+packCT n ct = snd $ go 0 ct'
+    where
+        go i t = (i',t
+            { nodedp = v VG.! i
+            , nodeV = VG.slice (i+1) (VG.length $ nodeV t) v
             , children = fromList children'
             })
             where
@@ -386,18 +423,23 @@ packCT n ct = snd $ go 0 ct'
                      ++ (toList $ nodeV ct) 
                      ++ (concatMap mkNodeList $ toList $ children ct)
 
+
 setNodeV :: 
     ( ValidCT base childContainer nodeVvec tag dp
     ) => Int -> CoverTree' base childContainer nodeVvec tag dp -> CoverTree' base childContainer nodeVvec tag dp
 setNodeV n ct = if stNumNodes ct > n
     then ct
-        { children = fromList $ fmap (setNodeV n) $ filter (not . stIsLeaf) $ toList $ children ct
+        { children = fromList $ sortBy sortgo $ fmap (setNodeV n) $ filter (not . stIsLeaf) $ toList $ children ct
         , nodeV = fromList $ fmap nodedp $ filter stIsLeaf $ toList $ children ct
         }
     else ct
         { children = mempty
         , nodeV = fromList $ stToList ct
         }
+--                 sortedChildren = sortBy sortgo $ toList $ children t
+    where
+        sortgo a b = compare (numdp b) (numdp a)
+                  <> compare (maxDescendentDistance b) (maxDescendentDistance a)
 
 ---------------------------------------
 

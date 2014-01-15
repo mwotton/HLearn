@@ -6,6 +6,7 @@ module HLearn.Models.Classifiers.NearestNeighbor
     where
 
 import Control.Applicative
+import Data.Default
 import qualified Data.Foldable as F
 import Data.List
 import Data.Maybe
@@ -66,6 +67,7 @@ instance
     , Ring (tree dp) ~ Ring dp
     , Floating (Ring dp)
     , CanError (Ring dp)
+    , Default dp
     ) => ProbabilityClassifier (KNearestNeighbor tree k dp)
         where
     type ResultDistribution (KNearestNeighbor tree k dp) = 

@@ -76,6 +76,7 @@ instance
         where
             go tot (-1) = tot
             go tot i = go (tot+(((rawdp m1) `VG.unsafeIndex` i)-((rawdp m2) `VG.unsafeIndex` i))
+--             go tot i = go (tot+(((moddp m1) `VG.unsafeIndex` i)-((moddp m2) `VG.unsafeIndex` i))
                               *(((moddp m1) `VG.unsafeIndex` i)-((moddp m2) `VG.unsafeIndex` i))) (i-1)
 
 --     isFartherThanWithDistance !m1 !m2 !dist = {-# SCC isFartherThanWithDistance #-} 

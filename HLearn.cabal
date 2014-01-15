@@ -27,6 +27,7 @@ Library
 
         -- my packages
         ConstraintKinds     >= 1.1.0,
+        params              >= 0.0.1,
 
         -- are these needed?
         statistics          >= 0.10,
@@ -47,6 +48,11 @@ Library
         memoize             >= 0.6,
         cassava             >= 0.2.2,
         strict              >= 0.3.2,
+        data-default        >= 0.5,
+
+        tagged              >= 0.7,
+        reflection          >= 1.3,
+        constraints         >= 0.3.4,
         
         ghc-prim, 
 
@@ -79,6 +85,7 @@ Library
         HLearn.Algebra.Types.HList
         HLearn.Algebra.Types.Nat1
         HLearn.Algebra.Types.Frac
+        HLearn.Algebra.Types.Reflection
         HLearn.Algebra.Models.HomTrainer
         HLearn.Algebra.Models.CoHomTrainer
         HLearn.Algebra.Models.Lame
@@ -101,7 +108,7 @@ Library
         HLearn.DataStructures.SpaceTree.Algorithms.NearestNeighbor
         HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
         HLearn.DataStructures.SpaceTree.DualTreeMonoids
-        HLearn.DataStructures.SpaceTree.Simple
+        --HLearn.DataStructures.SpaceTree.Simple
         HLearn.DataStructures.StrictList
         HLearn.DataStructures.StrictVector
         HLearn.DataStructures.KDTree
@@ -110,7 +117,7 @@ Library
         HLearn.Evaluation.CrossValidation
         HLearn.Evaluation.RSquared
         
-        HLearn.Models.Classifiers
+        --HLearn.Models.Classifiers
         HLearn.Models.Classifiers.Common
         HLearn.Models.Classifiers.Bayes
         HLearn.Models.Classifiers.NearestNeighbor
@@ -122,10 +129,12 @@ Library
 
         HLearn.Metrics.Generic
         HLearn.Metrics.Lebesgue
+        HLearn.Metrics.LebesgueFast
         HLearn.Metrics.Jaccard
         HLearn.Metrics.Mahalanobis
         HLearn.Metrics.Mahalanobis.Normal
         HLearn.Metrics.Mahalanobis.Lego
+        HLearn.Metrics.Mahalanobis.LegoPaper
         HLearn.Metrics.String.Levenshtein
         HLearn.Metrics.String.Hamming
         

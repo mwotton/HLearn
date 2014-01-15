@@ -2,6 +2,7 @@ module HLearn.DataStructures.SpaceTree.Simple
     where
 
 import Control.DeepSeq
+import Data.Default
 import qualified Data.Foldable as F
 import qualified Data.Strict as Strict
 import qualified Data.Vector as V
@@ -41,6 +42,10 @@ simple_knn ::
     , VG.Vector v dp
     , SingI k
     , Eq dp
+    , Floating (Ring dp)
+    , Default dp
+    , ValidNeighborList (NeighborList k dp)
+    , dp ~ NeighborListDP (NeighborList k dp)
     ) => dp -> NeighborList k dp -> Simple v dp -> NeighborList k dp
 simple_knn query knn (Simple v) = VG.foldl' cata knn v
     where

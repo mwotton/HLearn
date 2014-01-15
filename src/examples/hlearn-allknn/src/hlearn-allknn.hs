@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators,MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables,TemplateHaskell,DeriveDataTypeable,DataKinds,FlexibleInstances,TypeFamilies,RankNTypes,BangPatterns,FlexibleContexts,StandaloneDeriving,GeneralizedNewtypeDeriving,TypeOperators,MultiParamTypeClasses, UndecidableInstances,MagicHash #-}
 
 
 import Control.Applicative
@@ -17,6 +17,8 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Mutable as VM
 import qualified Data.Vector.Generic.Mutable as VGM
+import qualified Data.Vector.Primitive as VP
+import qualified Data.Vector.Primitive.Mutable as VPM
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import Data.Vector.Unboxed.Deriving
@@ -26,6 +28,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.Vector.Algorithms.Intro as Intro
 import Data.Proxy
 import Data.Reflection
+import Data.Primitive
 import Data.Time.Clock
 import System.Console.CmdArgs.Implicit
 import System.Environment
@@ -53,20 +56,142 @@ import HLearn.DataStructures.SpaceTree.Algorithms.RangeSearch
 import HLearn.DataStructures.SpaceTree.DualTreeMonoids
 import qualified HLearn.DataStructures.StrictList as Strict
 import HLearn.Metrics.Lebesgue
+import HLearn.Metrics.LebesgueFast
 import HLearn.Metrics.Mahalanobis
 import HLearn.Metrics.Mahalanobis.Normal
 import HLearn.Models.Distributions
 
 import UnsafeVector
+import Data.Params.FastVector as PV
 
-type DP = L2 VU.Vector Float
+-- instance CK.Functor (PV.Vector len) where
+--     type FunctorConstraint (PV.Vector len) a = Prim  a
+--     fmap = VG.map
+-- 
+-- instance (VG.VectorCK.Foldable (PV.Vector len) where
+--     type FoldableConstraint (PV.Vector len) a = Prim a
+--     foldr = VG.foldr
+--     foldl = VG.foldl
+-- 
+
+instance CK.Functor VP.Vector where
+    type FunctorConstraint VP.Vector x = Prim x
+    {-# INLINE fmap #-}
+    fmap = VP.map
+
+instance CK.Foldable VP.Vector where
+    type FoldableConstraint VP.Vector x = Prim x
+    {-# INLINE foldr #-}
+    {-# INLINE foldr' #-}
+    {-# INLINE foldl #-}
+    {-# INLINE foldl' #-}
+    {-# INLINE foldr1 #-}
+    {-# INLINE foldl1 #-}
+    
+    foldr = VP.foldr
+    foldr' = VP.foldr'
+    foldl = VP.foldl
+    foldl' = VP.foldl'
+    foldr1 = VP.foldr1
+    foldl1 = VP.foldl1
+
+instance (Prim a, VG.Vector VP.Vector a) => FromList VP.Vector a where
+    {-# INLINE fromList #-}
+    {-# INLINE toList #-}
+    fromList = VG.fromList
+    toList = VG.toList
+
+instance Prim (v a) => Prim (L2 v a) where
+    {-# INLINE sizeOf# #-}
+    sizeOf# _ = sizeOf# (undefined :: v a)
+    {-# INLINE alignment# #-}
+    alignment# _ = alignment# (undefined :: v a)
+    {-# INLINE indexByteArray# #-}
+    indexByteArray# arr# i# = L2 (indexByteArray# arr# i#)
+    {-# INLINE writeByteArray# #-}
+    writeByteArray# arr# i# (L2 a) = writeByteArray# arr# i# a
+
+
+instance (FromField elem, VG.Vector (PV.Vector len) elem) => FromRecord (PV.Vector len elem) where
+    parseRecord a = VG.fromList `liftM` parseRecord a
+
+instance Num elem => HasRing (PV.Vector len elem) where
+    type Ring (PV.Vector len elem) = elem
+
+-- instance (Floating elem, RealFrac elem, SingI len, SingI (len+1),  Prim elem) =>  MetricSpace (PV.L2Vector (Just len) elem) where
+--     {-# INLINE distance #-}
+--     distance v1 v2 = sqrt $ v1 `VG.unsafeIndex` 0 + v2 `VG.unsafeIndex` 0 -2*(go 0 1)
+--         where
+--             go !tot !i = if i > VG.length v1
+--                 then tot
+--                 else go (tot+(v1 `VG.unsafeIndex` i * v2 `VG.unsafeIndex` i)
+--                             +(v1 `VG.unsafeIndex` (i+1) * v2 `VG.unsafeIndex` (i+1))
+--                             +(v1 `VG.unsafeIndex` (i+2) * v2 `VG.unsafeIndex` (i+2))
+--                             +(v1 `VG.unsafeIndex` (i+3) * v2 `VG.unsafeIndex` (i+3))) (i+4)
+-- l2distance4 v1 v2
+
+-- 
+instance (Floating elem, RealFrac elem, VG.Vector (PV.Vector len) elem) =>  MetricSpace (PV.Vector len elem) where
+    {-# INLINE distance #-}
+    distance v1 v2 = distance (L2 v1) (L2 v2)
+
+    {-# INLINE isFartherThanWithDistanceCanError #-}
+    isFartherThanWithDistanceCanError !v1 !v2 !dist = {-# SCC isFartherThanWithDistanceCanError #-} 
+            go 0 0
+        where
+            dist2=dist*dist
+
+--             go !tot !i = if i>=20 -- VG.length v1-4
+--                 then sqrt tot
+--                 else if tot'>dist2
+--                     then errorVal
+--                     else go tot' (i+4)
+            go !tot !i = if tot'>dist2
+                then errorVal
+                else if i>=VG.length v1-8
+                    then sqrt tot'
+                    else go tot' (i+8)
+                where
+                    tot' = tot
+                        +(v1 `VG.unsafeIndex` (i)-v2 `VG.unsafeIndex` (i))
+                        *(v1 `VG.unsafeIndex` (i)-v2 `VG.unsafeIndex` (i))
+                        +(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
+                        *(v1 `VG.unsafeIndex` (i+1)-v2 `VG.unsafeIndex` (i+1))
+                        +(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
+                        *(v1 `VG.unsafeIndex` (i+2)-v2 `VG.unsafeIndex` (i+2))
+                        +(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
+                        *(v1 `VG.unsafeIndex` (i+3)-v2 `VG.unsafeIndex` (i+3))
+                        +(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
+                        *(v1 `VG.unsafeIndex` (i+4)-v2 `VG.unsafeIndex` (i+4))
+                        +(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
+                        *(v1 `VG.unsafeIndex` (i+5)-v2 `VG.unsafeIndex` (i+5))
+                        +(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
+                        *(v1 `VG.unsafeIndex` (i+6)-v2 `VG.unsafeIndex` (i+6))
+                        +(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
+                        *(v1 `VG.unsafeIndex` (i+7)-v2 `VG.unsafeIndex` (i+7))
+
+--             {-# INLINE goEach #-}
+--             goEach !tot !i = if i>= 20 
+--                 then tot
+--                 else if tot'>dist2
+--                     then errorVal
+--                     else goEach tot' (i+1)
+--                 where
+--                     tot' = tot+(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+--                               *(v1 `VG.unsafeIndex` i-v2 `VG.unsafeIndex` i)
+
+type instance 20+1=21
+-- type DP = PV.Vector (Just 20) Float
+type DP = L2 (PV.Vector (Just 784)) Float
+-- type DP = L2 VU.Vector Float
 -- type DP = DP2 
 -- type Tree = AddUnit (CoverTree' (5/4) V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) Strict.List V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) [] V.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) V.Vector VU.Vector) () DP
 -- type Tree = AddUnit (CoverTree' (13/10) Strict.List VU.Vector) () DP
-type Tree = AddUnit (CoverTree' (13/10) [] VU.Vector) () DP
+-- type Tree = AddUnit (CoverTree' (13/10) [] VU.Vector) () DP
+type Tree = AddUnit (CoverTree' (13/10) [] VP.Vector) () DP
 
 data Params = Params
     { k :: Int
@@ -100,8 +225,9 @@ main = do
 
     case k params of 
         1 -> runit params (undefined :: Tree) (undefined :: NeighborMap 1 DP)
-        2 -> runit params (undefined :: Tree) (undefined :: NeighborMap 2 DP)
-        3 -> runit params (undefined :: Tree) (undefined :: NeighborMap 3 DP)
+--         2 -> runit params (undefined :: Tree) (undefined :: NeighborMap 2 DP)
+--         3 -> runit params (undefined :: Tree) (undefined :: NeighborMap 3 DP)
+--         100 -> runit params (undefined :: Tree) (undefined :: NeighborMap 100 DP)
 --         4 -> runit params (undefined :: Tree) (undefined :: NeighborMap 4 DP)
 --         5 -> runit params (undefined :: Tree) (undefined :: NeighborMap 5 DP)
 --         6 -> runit params (undefined :: Tree) (undefined :: NeighborMap 6 DP)
@@ -112,8 +238,9 @@ main = do
         otherwise -> error "specified k value not supported"
 
 {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 1 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 2 DP -> IO ()#-}
-{-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 3 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 2 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 3 DP -> IO ()#-}
+-- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 100 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 4 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 5 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 6 DP -> IO ()#-}
@@ -121,11 +248,10 @@ main = do
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 8 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 9 DP -> IO ()#-}
 -- {-# SPECIALIZE runit :: Params -> Tree -> NeighborMap 10 DP -> IO ()#-}
-
+{-# INLINE runit #-}
 runit :: forall k tree base childContainer nodeVvec dp ring. 
     ( MetricSpace dp
     , Ord dp
-    , SingI k
     , Show dp
     , Show (Ring dp)
     , NFData dp
@@ -133,6 +259,7 @@ runit :: forall k tree base childContainer nodeVvec dp ring.
     , RealFloat (Ring dp)
     , FromRecord dp 
     , VU.Unbox (Ring dp)
+    , SingI k
 --     , VG.Vector nodeVvec dp
     , dp ~ DP
     ) => Params -> AddUnit (CoverTree' base childContainer nodeVvec) () dp -> NeighborMap k dp -> IO ()
@@ -147,6 +274,7 @@ runit params tree knn = do
     let reftree = {-parallel-} train rs :: Tree
     timeIO "building reference tree" $ return reftree
     let reftree_prune = packCT 0 $ unUnit reftree
+    
 --     let reftree_prune = rmGhostSingletons $  unUnit reftree
     timeIO "packing reference tree" $ return reftree_prune
 
@@ -168,6 +296,12 @@ runit params tree knn = do
 --     res <- timeIO "computing parFindNeighborMap" $ return result
 --     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
 --     res <- timeIO "computing parFindNeighborMap" $ return result
+--     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
+--     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
+--     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
+--     res <- timeIO "computing parFindNeighborMap" $ return result
     let result = parFindNeighborMap (DualTree (reftree_prune) (querytree)) :: NeighborMap k DP
     res <- timeIO "computing parFindNeighborMap" $ return result
 --     let result = parallel findNeighborMap (DualTree (reftree_prune) (unUnit querytree)) :: NeighborMap k DP
@@ -184,7 +318,7 @@ runit params tree knn = do
             map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
             . Map.elems 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
-            . Map.map (map neighborDistance . Strict.strictlist2list . getknn) 
+            . Map.map (map neighborDistance . getknnL) 
             $ nm2map res 
 --             . Map.map (map rangedistance . Set.toList . rangeset) 
 --             $ rm2map res 
@@ -197,7 +331,7 @@ runit params tree knn = do
             . Map.elems 
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k rs_index) 
-            . Map.map (map neighbor . Strict.strictlist2list . getknn) 
+            . Map.map (map neighbor . getknnL) 
             $ nm2map res 
 --             . Map.map (map rangedp . Set.toList . rangeset)
 --             $ rm2map res 

@@ -109,7 +109,8 @@ instance
     ( SingI eta
     , RegMatrix reg
     , MatrixField (Vector r)
-    , r ~ Ring (dp r), F.Foldable dp
+    , r ~ Ring (dp r)
+    , F.Foldable dp
     ) => HomTrainer (Lego reg eta (dp r)) 
         where
     type Datapoint (Lego reg eta (dp r)) = (r,dp r)
