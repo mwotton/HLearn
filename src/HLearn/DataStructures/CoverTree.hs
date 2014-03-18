@@ -51,8 +51,8 @@ import Test.QuickCheck
 import Debug.Trace
 
 import Diagrams.Prelude hiding (distance,trace,query,connect)
-import Diagrams.Backend.SVG.CmdLine
--- import Diagrams.Backend.Postscript.CmdLine
+-- import Diagrams.Backend.SVG.CmdLine
+import Diagrams.Backend.Postscript.CmdLine
 
 import qualified Control.ConstraintKinds as CK
 import HLearn.Algebra hiding ((#),(<>),(|>),numdp)
@@ -929,7 +929,13 @@ ys :: [(Double,Double)]
 -- ys = [(-2,2),(1,1),(0,0),(1,-1),(0,1),(1,0)]
 -- ys = [(0,0),(0,10),(10,10),(10,0),(10,-10),(0,-10),(-10,-10),(-10,0),(-10,10)]
 ys = [(0,0),(0,10),(8,8),(10,0),(8,-8),(0,-10),(-8,-8),(-10,0),(-8,8)]
+ys1 = [(-8,8),(0,10),(0,0),(8,-8)]
+ys2 = [(8,8),(10,0),(0,-10),(-8,-8),(-10,0)]
+ys2' = [(8,8),(-10,0),(10,0),(0,-10),(-8,-8)]
 my = train ys :: CoverTree (Double,Double)
+my1= train ys1:: CoverTree (Double,Double)
+my2= train ys2:: CoverTree (Double,Double)
+my2'= train ys2':: CoverTree (Double,Double)
 -- my2 = train $ take 3 ys :: CoverTree (Double,Double)
 -- my = prunect $ insertBatch ys
 
@@ -939,8 +945,10 @@ ys' = [(1,2),(2,1)]
 -- my' = prunect $ insertBatch ys'
 
 zs :: [(Double,Double)]
+zs = [(20,10),(20,21),(21,22),(19,20),(21,20),(20,20),(20,15),(20,11),(15,20)]
+-- zs = [(20,21),(21,22),(30,20),(20,20),(19,20),(20,10),(22,21)]
 -- zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(19,20),(20,10),(22,21)]
-zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(20,10),(22,21)]
+-- zs = [(20,21),(22,23),(21,22),(30,20),(20,20),(20,10),(22,21)]
 mz = train zs :: CoverTree (Double,Double)
 
 type CoverTreeVU dp = AddUnit (CoverTree' (2/1) V.Vector VU.Vector) () dp
@@ -979,14 +987,15 @@ draw' depth tree = mkConnections $
                          === (text (show (sepdist tree)) <> strutY 0.5) 
 --                          === (text (show (maxDescendentDistance tree)) <> strutY 0.5)
                         ) 
-                          <> circle 1 # fc nodecolor) 
-               === (pad 1.05 $ centerName (label++show (depth+1)) $ 
-                   VG.foldr (|||) mempty $ fmap (draw' (depth+1)) $ children tree)
+                          <> circle 1 # fc nodecolor # lw 0.1 # lc green) 
+               === strutY 0.5
+               === (centerX $ pad 1.05 $ centerName (label++show (depth+1)) $ 
+                   VG.foldr (\x y -> x||| strutX 0.5 |||y) mempty $ fmap (draw' (depth+1)) $ children tree)
                 
     where
         label = intShow $ nodedp tree
         nodecolor = if weight tree > 0
-            then red
+            then lightgreen -- red
             else lightblue
 
         mkConnections = 
@@ -1011,7 +1020,7 @@ centerName name = withName name $ \b a -> moveOriginTo (location b) a
 connect n1 n2
     = withName n1 $ \b1 ->
       withName n2 $ \b2 ->
-        atop ((location b1 ~~ location b2) # lc green # lw 0.03)
+        flip atop ((location b1 ~~ location b2) # lc green # lw 0.07)
 --          ((location b1 ~~ location b2) # lc green # lw 0.03)
 
 
