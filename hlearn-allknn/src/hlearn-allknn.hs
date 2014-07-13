@@ -271,7 +271,7 @@ runit params tree knn = do
             map (hPutStrLn hDistances . concat . intersperse "," . map (\x -> showEFloat (Just 10) x "")) 
             . Map.elems 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
-            . Map.map (map neighborDistance . getknnL) 
+            . Map.map (map getNeighborDistance . getknnL) 
             $ nm2map res 
         hClose hDistances
 
@@ -282,7 +282,7 @@ runit params tree knn = do
             . Map.elems 
             . Map.map (map (\v -> fromJust $ Map.lookup v rs_index)) 
             . Map.mapKeys (\k -> fromJust $ Map.lookup k qs_index) 
-            . Map.map (map neighbor . getknnL) 
+            . Map.map (map getNeighbor . getknnL) 
             $ nm2map res 
         hClose hNeighbors
   

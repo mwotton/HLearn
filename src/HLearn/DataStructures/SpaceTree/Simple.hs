@@ -41,12 +41,13 @@ simple_knn ::
     , VG.Vector v dp
     , KnownNat k
     , Eq dp
+    , AdaptiveNeighborList k dp
     ) => dp -> NeighborList k dp -> Simple v dp -> NeighborList k dp
 simple_knn query knn (Simple v) = VG.foldl' cata knn v
     where
-        cata knn dp = case isFartherThanWithDistance query dp (nl_maxdist knn) of
+        cata knn dp = case isFartherThanWithDistance query dp (nlMaxDist knn) of
             Strict.Nothing -> knn
-            Strict.Just dist -> mkNeighborList dp dist <> knn
+            Strict.Just dist -> nlSingleton (mkNeighbor dp dist) <> knn
 
 -- instance SpaceTree (Simple v) where
 --     type NodeContainer = v

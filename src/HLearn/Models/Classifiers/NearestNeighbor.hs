@@ -70,13 +70,14 @@ instance
     , Show attr
     , Show (Scalar dp)
     , Show label
+    , AdaptiveNeighborList k dp
     ) => ProbabilityClassifier (KNearestNeighbor tree k dp)
         where
     type ResultDistribution (KNearestNeighbor tree k dp) = 
             Categorical (Probability (KNearestNeighbor tree k dp)) (Label dp)
     
     probabilityClassify m dp = --trace ("length res="++show (length $ getknnL res)++"; dp="++show dp++";\nres="++show res++"\n\n") $ 
-        train . map (getLabel . neighbor) $ getknnL res 
+        train . map (getLabel . getNeighbor) $ getknnL res 
 --     probabilityClassify m dp = reduce . map (\dp -> (1+1/neighborDistance dp) .* train1dp (getLabel $ neighbor dp)) $ getknnL res 
         where
             res = findNeighborList (gettree m) (noLabel dp) :: NeighborList k dp
