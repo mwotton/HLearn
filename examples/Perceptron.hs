@@ -19,7 +19,7 @@ instance Monoid Vector2 where
 instance Group Vector2 where
     inverse (Vector2 xs) = Vector2 $ map negate xs
     
-type Ring Vector2 = Double
+type Scalar Vector2 = Double
 
 instance Module Vector2 where
     r .* (Vector2 xs) = Vector2 $ fmap (r*) xs
